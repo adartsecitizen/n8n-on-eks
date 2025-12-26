@@ -41,8 +41,8 @@ resource "aws_security_group" "rds_sg" {
     # If allowing access from the whole VPC:
     cidr_blocks = [data.aws_vpc.this.cidr_block] 
   }
-}
 
+  # --- The fix: 'egress' and 'tags' must be INSIDE the resource block ---
   egress {
     from_port   = 0
     to_port     = 0
@@ -51,7 +51,7 @@ resource "aws_security_group" "rds_sg" {
   }
 
   tags = local.common_tags
-}
+} # <--- The closing brace goes HERE
 
 /*resource "aws_db_subnet_group" "aurora_subnet_group" {
   name       = "${var.project_name}-db-subnet-group"
