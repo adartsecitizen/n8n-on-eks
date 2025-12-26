@@ -115,7 +115,7 @@ data "aws_availability_zones" "available" {
   subnet_ids = module.vpc.private_subnets
 
 }
-#/
+*/
 
 # Supporting Resources
 /*module "vpc" {
@@ -147,4 +147,4 @@ data "aws_availability_zones" "available" {
 
   tags = local.common_tags
 }
-/#
+*/
