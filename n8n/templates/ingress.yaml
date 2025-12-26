@@ -1,0 +1,37 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: n8n
+  namespace: n8n
+  labels:
+    app: n8n
+    project: n8n-demo
+  annotations:
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    {{- if .Values.cloudfront.customHeaderValue }}
+    alb.ingress.kubernetes.io/conditions.n8n-main: |
+      [{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"X-CloudFront-Secret","values":["{{ .Values.cloudfront.customHeaderValue }}"]}}]
+    alb.ingress.kubernetes.io/conditions.n8n-webhook: |
+      [{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"X-CloudFront-Secret","values":["{{ .Values.cloudfront.customHeaderValue }}"]}}]
+    {{- end }}
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: n8n-webhook
+                port:
+                  number: 5678
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: n8n-main
+                port:
+                  number: 5678

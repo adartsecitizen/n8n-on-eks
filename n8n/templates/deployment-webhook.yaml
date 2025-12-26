@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: n8n
+    component: webhook
+    project: n8n-demo
+  name: n8n-webhook
+  namespace: n8n
+spec:  
+  replicas: {{ .Values.webhook.replicas }}
+  selector:
+    matchLabels:
+      app: n8n
+      component: webhook
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: n8n
+        component: webhook
+        project: n8n-demo
+    spec:
+      serviceAccountName: n8n-sa
+      containers:
+        - command:
+            - /bin/sh
+          args:
+            - -c
+            - |
+              # Extract database credentials and encryption key
+              export DB_POSTGRESDB_DATABASE=$(jq -r '.dbname' /mnt/secrets-store/{{ .Values.database.secretName }})
+              export DB_POSTGRESDB_HOST=$(jq -r '.host' /mnt/secrets-store/{{ .Values.database.secretName }})
+              export DB_POSTGRESDB_USER=$(jq -r '.username' /mnt/secrets-store/{{ .Values.database.secretName }})
+              export DB_POSTGRESDB_PASSWORD=$(jq -r '.password' /mnt/secrets-store/{{ .Values.database.secretName }})
+              export DB_POSTGRESDB_PORT=$(jq -r '.port' /mnt/secrets-store/{{ .Values.database.secretName }})
+              
+              export N8N_ENCRYPTION_KEY=$(cat /mnt/secrets-store/{{ .Values.encryption.secretName }})
+                            
+              sleep 5
+              n8n webhook
+          env:
+            - name: DB_TYPE
+              value: postgresdb
+            - name: EXECUTIONS_MODE
+              value: queue
+            - name: QUEUE_BULL_REDIS_CLUSTER_NODES
+              value: "{{ .Values.valkey.clusterNodes }}"
+          image: {{ .Values.main.image.repository }}:{{ .Values.main.image.tag }}
+          name: n8n-webhook
+          ports:
+            - containerPort: 5678
+          resources:
+            {{- toYaml .Values.webhook.resources | nindent 12 }}
+          volumeMounts:
+            - name: n8n-secrets
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+      restartPolicy: Always
+      volumes:
+        - name: n8n-secrets
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: n8n-secrets

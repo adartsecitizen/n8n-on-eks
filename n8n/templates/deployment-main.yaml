@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: n8n
+    component: main
+    project: n8n-demo
+  name: n8n-main
+  namespace: n8n
+spec:  
+  replicas: 1
+  selector:
+    matchLabels:
+      app: n8n
+      component: main
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: n8n
+        component: main
+        project: n8n-demo
+    spec:
+      serviceAccountName: n8n-sa
+      containers:
+        - command:
+            - /bin/sh
+          args:
+            - -c
+            - |
+              # Extract database credentials and encryption key
+              export DB_POSTGRESDB_DATABASE=$(jq -r '.dbname' /mnt/secrets-store/{{ .Values.database.secretName }})
+              export DB_POSTGRESDB_HOST=$(jq -r '.host' /mnt/secrets-store/{{ .Values.database.secretName }})
+              export DB_POSTGRESDB_USER=$(jq -r '.username' /mnt/secrets-store/{{ .Values.database.secretName }})
+              export DB_POSTGRESDB_PASSWORD=$(jq -r '.password' /mnt/secrets-store/{{ .Values.database.secretName }})
+              export DB_POSTGRESDB_PORT=$(jq -r '.port' /mnt/secrets-store/{{ .Values.database.secretName }})
+              
+              export N8N_ENCRYPTION_KEY=$(cat /mnt/secrets-store/{{ .Values.encryption.secretName }})
+                            
+              sleep 5
+              n8n start
+          env:
+            - name: DB_TYPE
+              value: postgresdb
+            - name: EXECUTIONS_MODE
+              value: queue
+            - name: QUEUE_BULL_REDIS_CLUSTER_NODES
+              value: "{{ .Values.valkey.clusterNodes }}"
+            {{- if .Values.cloudfront.domainName }}
+            - name: N8N_EDITOR_BASE_URL
+              value: https://{{ .Values.cloudfront.domainName }}/
+            {{- end }}
+            {{- if .Values.cloudfront.domainName }}
+            - name: WEBHOOK_URL
+              value: https://{{ .Values.cloudfront.domainName }}/
+            {{- end }}
+          image: {{ .Values.main.image.repository }}:{{ .Values.main.image.tag }}
+          name: n8n-main
+          ports:
+            - containerPort: 5678
+          resources:
+            {{- toYaml .Values.main.resources | nindent 12 }}
+          volumeMounts:
+            - name: n8n-secrets
+              mountPath: "/mnt/secrets-store"
+              readOnly: true
+      restartPolicy: Always
+      volumes:
+        - name: n8n-secrets
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: n8n-secrets
