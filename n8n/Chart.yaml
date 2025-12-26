@@ -1,0 +1,6 @@
+apiVersion: v2
+name: n8n
+description: A Helm chart to deploy n8n on EKS
+type: application
+version: 0.1.0
+appVersion: "latest"

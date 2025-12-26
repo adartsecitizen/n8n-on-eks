@@ -1,0 +1,43 @@
+# Values that will be set by Terraform
+valkey:
+  clusterNodes: ""
+
+cloudfront:
+  domainName: ""
+  customHeaderValue: ""
+
+database:
+  secretName: ""
+
+encryption:
+  secretName: ""
+
+serviceAccount:
+  roleArn: ""
+
+# Values that can be manually set
+main:
+  image:
+    repository: n8nio/n8n
+    tag: latest
+  resources:
+    requests:
+      memory: "1G"
+    limits:
+      memory: "2G"
+
+worker:
+  replicas: 1
+  resources:
+    requests:
+      memory: "1G"
+    limits:
+      memory: "2G"
+
+webhook:
+  replicas: 1
+  resources:
+    requests:
+      memory: "1G"
+    limits:
+      memory: "2G"
