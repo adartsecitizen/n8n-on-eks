@@ -29,6 +29,37 @@ SERVICE_ACCOUNT_ROLE_ARN=$(terraform output -raw service_account_role_arn)
 echo "🔧 Configuring kubectl context..."
 aws eks update-kubeconfig --name "$CLUSTER_NAME" --region us-east-1
 
+# --- FIX START: Wait for ALB Controller CRDs (elbv2) ---
+echo "⏳ Waiting for AWS Load Balancer Controller CRDs to be ready..."
+
+# Initialize counter
+attempt_counter=0
+max_attempts=24
+
+# We check for the NEW CRD name: ingressclassparams.elbv2.k8s.aws
+until kubectl get crd ingressclassparams.elbv2.k8s.aws > /dev/null 2>&1; do
+    if [ ${attempt_counter} -eq ${max_attempts} ];then
+      echo "❌ Error: Timed out waiting for AWS Load Balancer Controller CRDs."
+      echo "   Debug info: Run 'kubectl get crd' to see what is installed."
+      exit 1
+    fi
+
+    printf "."
+    attempt_counter=$(($attempt_counter+1))
+    sleep 5
+done
+
+echo ""
+echo "✅ CRD definition found."
+
+# Wait for the NEW CRD to be fully established
+echo "   Verifying CRD status..."
+kubectl wait --for=condition=established crd/ingressclassparams.elbv2.k8s.aws --timeout=60s
+
+echo "✅ CRDs are fully ready. Pausing 15s for webhook service to start..."
+sleep 15
+# --- FIX END ---
+
 # Step 2: Deploy n8n with Helm
 echo "⚡ Deploying n8n with Helm..."
 cd "$ROOT_DIR"
@@ -43,8 +74,14 @@ helm upgrade --install n8n ./n8n \
 
 # Step 3: Get ALB DNS
 echo "🌐 Waiting for ALB to be ready..."
-sleep 120
-ALB_DNS=$(kubectl get ingress n8n -n n8n -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+# Optimized: Loop until the address appears instead of a hard 2-minute sleep
+echo "Waiting for Ingress hostname..."
+ALB_DNS=""
+while [ -z "$ALB_DNS" ]; do
+  echo "Checking for ALB Address..."
+  sleep 10
+  ALB_DNS=$(kubectl get ingress n8n -n n8n -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+done
 
 echo "ALB DNS: $ALB_DNS"
 

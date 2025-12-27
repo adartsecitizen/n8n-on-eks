@@ -16,6 +16,7 @@ resource "helm_release" "secrets_csi_driver" {
   ]
   # ----------------------
 }*/
+}
 
 resource "helm_release" "secrets_csi_provider_aws" {
   name       = "secrets-provider-aws"

@@ -12,6 +12,7 @@ resource "random_password" "db_password" {
   special = false
 }
 
+
 resource "aws_secretsmanager_secret" "db_credentials" {
   name        = "${var.project_name}-db-credentials-${random_id.suffix.hex}"
   description = "Credentials for Aurora PostgreSQL cluster"
@@ -19,30 +20,20 @@ resource "aws_secretsmanager_secret" "db_credentials" {
   tags = local.common_tags
 }
 
-/*resource "aws_security_group" "rds_sg" {
+# --- SECURITY GROUP (FIXED) ---
+resource "aws_security_group" "rds_sg" {
   name        = "${var.project_name}-db-sg"
   description = "Security group for Aurora PostgresSQL"
-  vpc_id      = module.vpc.vpc_id
-  
+  vpc_id      = data.aws_vpc.this.id
+
   ingress {
-    description = "Access from EKS private subnets only"
+    description = "Access from VPC"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = [for k, v in local.azs : cidrsubnet(var.vpc_cidr, 4, k)]
-  }*/
-
-resource "aws_security_group" "rds_sg" {
-  # ... other args ...
-  vpc_id = data.aws_vpc.this.id  # <--- CHANGED
-
-  ingress {
-    # ...
-    # If allowing access from the whole VPC:
-    cidr_blocks = [data.aws_vpc.this.cidr_block] 
+    cidr_blocks = [data.aws_vpc.this.cidr_block]
   }
 
-  # --- The fix: 'egress' and 'tags' must be INSIDE the resource block ---
   egress {
     from_port   = 0
     to_port     = 0
@@ -51,21 +42,15 @@ resource "aws_security_group" "rds_sg" {
   }
 
   tags = local.common_tags
-} # <--- The closing brace goes HERE
-
-/*resource "aws_db_subnet_group" "aurora_subnet_group" {
-  name       = "${var.project_name}-db-subnet-group"
-  subnet_ids = module.vpc.private_subnets
-  
-  tags = local.common_tags
-}*/
-
-
-resource "aws_db_subnet_group" "aurora_subnet_group" {
-  # ...
-  subnet_ids = data.aws_subnets.private.ids # <--- CHANGED
 }
 
+# --- SUBNET GROUP (FIXED) ---
+resource "aws_db_subnet_group" "aurora_subnet_group" {
+  name       = "${var.project_name}-db-subnet-group"
+  subnet_ids = data.aws_subnets.private.ids 
+  
+  tags = local.common_tags
+}
 
 resource "aws_rds_cluster" "aurora_postgresql" {
   cluster_identifier     = "${var.project_name}-db"

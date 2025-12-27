@@ -1,7 +1,7 @@
 # --- Existing Infrastructure Configuration ---
 # Replace these values with your actual AWS resource IDs
-existing_cluster_name = "YOUR_EKS_CLUSTER_NAME"
-existing_vpc_id       = "vpc-xxxxxxxxxxxxxxxxx"
+existing_cluster_name = "hr-stag-eksdemo1"
+existing_vpc_id       = "vpc-07a1625611b2dc5dc"
 
 # --- Project Settings ---
 project_name          = "n8n-demo"
